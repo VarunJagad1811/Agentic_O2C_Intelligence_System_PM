@@ -1,2 +1,31 @@
-Agentic_Integration/.streamlit/secrets.toml 
-.streamlit/ 
+# --- Security / Secrets ---
+.streamlit/secrets.toml
+.env
+
+# --- FAISS Vector Database & ML Models ---
+# (Prevents pushing heavy indices and datasets to GitHub)
+faiss_index/
+*.faiss
+*.index
+*.csv
+*.xlsx
+*.pkl
+*.h5
+*.joblib
+
+# --- Python & Cache (Prevents Merge Conflicts) ---
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# --- Virtual Environments (Massive folders, never push) ---
+.venv/
+venv/
+env/
+
+# --- IDE & OS Junk ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

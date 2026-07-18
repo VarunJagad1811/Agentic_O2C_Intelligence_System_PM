@@ -2,8 +2,8 @@ import joblib
 import streamlit as st
 import pandas as pd
 import numpy as np
-import shap        # <--- Added
-import warnings    # <--- Added
+import shap        
+import warnings    
 
 # --- IMPORT FROM CUSTOM MODULES ---
 from modules.ml_engine import load_engine, get_flat_shap
@@ -12,6 +12,16 @@ from modules.agentic_ai import generate_risk_narrative, generate_detailed_busine
 
 # Now warnings will work
 warnings.filterwarnings('ignore')
+
+# --- HELPER FUNCTION (Code Cleanup) ---
+def render_risk_badge(prob):
+    """Consolidates the HTML rendering for risk scores to prevent duplicated code."""
+    if prob > 0.5:
+        st.markdown(f"<h2 style='color:#f87171; margin-bottom:0; text-shadow: 0 0 20px rgba(248, 113, 113, 0.4);'>MANUAL REVIEW</h2>", unsafe_allow_html=True)
+        st.markdown(f"<span style='font-size: 1.2rem; font-weight: 600; color: #fca5a5;'>Risk Score: {prob*100:.1f}%</span>", unsafe_allow_html=True)
+    else:
+        st.markdown(f"<h2 style='color:#4ade80; margin-bottom:0; text-shadow: 0 0 20px rgba(74, 222, 128, 0.4);'>LOW RISK</h2>", unsafe_allow_html=True)
+        st.markdown(f"<span style='font-size: 1.2rem; font-weight: 600; color: #86efac;'>Risk Score: {prob*100:.1f}%</span>", unsafe_allow_html=True)
 
 # 1. ENHANCED CACHE FUNCTION
 @st.cache_resource
@@ -29,7 +39,7 @@ def load_all_resources():
 df, X, model, explainer, encoders, acc = load_all_resources()
 
 # --- PAGE SETUP ---
-st.set_page_config(page_title="Causal O2C Process Miner", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Agentic O2C Process Miner", layout="wide", initial_sidebar_state="expanded")
 inject_custom_css()
 
 if df is not None:
@@ -42,11 +52,14 @@ if df is not None:
         st.success("● Causal SHAP Visuals Active")
         st.success("● Prescriptive AI Agent Online") 
         st.markdown("---")
-        render_custom_metric("Accuracy", f"{acc*100:.1f}%", "+0.4% vs last week")
+        
+        # --- UI FIX: Use real academic metrics ---
+        acc_val = model.test_metrics['accuracy'] if hasattr(model, 'test_metrics') else acc
+        render_custom_metric("Test Accuracy", f"{acc_val*100:.1f}%", "Out-of-sample Validation")
         st.caption("Random Forest • 50 Estimators • SHAP")
 
     # --- MAIN PAGE ---
-    st.title("🚀 Explainable Decision Intelligence: O2C")
+    st.title(" Agentic Decision Intelligence: O2C")
     st.markdown("_Leveraging Predictive ML, SHAP, and Prescriptive AI Agents_")
 
     tab1, tab2, tab3, tab4 = st.tabs(["🔎 Case Inspector", "📈 Process Analytics", "🔮 Risk Simulator", "🤖 Agentic Business Report"])
@@ -102,12 +115,9 @@ if df is not None:
             
             with col_reason:
                 st.markdown("#### 🧠 Predictive Diagnosis")
-                if prob > 0.5:
-                    st.markdown(f"<h2 style='color:#f87171; margin-bottom:0; text-shadow: 0 0 20px rgba(248, 113, 113, 0.4);'>MANUAL REVIEW</h2>", unsafe_allow_html=True)
-                    st.markdown(f"<span style='font-size: 1.2rem; font-weight: 600; color: #fca5a5;'>Risk Score: {prob*100:.1f}%</span>", unsafe_allow_html=True)
-                else:
-                    st.markdown(f"<h2 style='color:#4ade80; margin-bottom:0; text-shadow: 0 0 20px rgba(74, 222, 128, 0.4);'>LOW RISK</h2>", unsafe_allow_html=True)
-                    st.markdown(f"<span style='font-size: 1.2rem; font-weight: 600; color: #86efac;'>Risk Score: {prob*100:.1f}%</span>", unsafe_allow_html=True)
+                
+                # --- UI FIX: Use the new helper function ---
+                render_risk_badge(prob)
                 
                 st.markdown("---")
                 st.markdown("#### 🏆 Causal SHAP Drivers")
@@ -222,12 +232,9 @@ if df is not None:
             
             with res_c1:
                 st.markdown("#### 🚦 Prediction")
-                if sim_prob > 0.5:
-                    st.markdown(f"<h2 style='color:#f87171; margin:0; text-shadow: 0 0 20px rgba(248, 113, 113, 0.4);'>MANUAL REVIEW</h2>", unsafe_allow_html=True)
-                    st.markdown(f"<span style='font-size: 1.2rem; font-weight: 600; color: #fca5a5;'>Risk Score: {sim_prob*100:.1f}%</span>", unsafe_allow_html=True)
-                else:
-                    st.markdown(f"<h2 style='color:#4ade80; margin:0; text-shadow: 0 0 20px rgba(74, 222, 128, 0.4);'>LOW RISK</h2>", unsafe_allow_html=True)
-                    st.markdown(f"<span style='font-size: 1.2rem; font-weight: 600; color: #86efac;'>Risk Score: {sim_prob*100:.1f}%</span>", unsafe_allow_html=True)
+                
+                # --- UI FIX: Use the new helper function ---
+                render_risk_badge(sim_prob)
                     
             with res_c2:
                 st.markdown("#### ⏱️ Logistics Estimates")
@@ -275,8 +282,10 @@ if df is not None:
                     st.markdown(agent_html, unsafe_allow_html=True)
                     
             with col_act_t3:
-                run_autonomous_agent(sim_prob, sim_input, "tab3")
-   # ==========================================
+                # --- ACADEMIC FIX: Pass the SHAP factors into the autonomous agent ---
+                run_autonomous_agent(sim_prob, sim_input, "tab3", top_factors=top_driver_list_tab3)
+
+    # ==========================================
     # === TAB 4: AGENTIC BUSINESS REPORT =======
     # ==========================================
     with tab4:
@@ -313,7 +322,9 @@ if df is not None:
             
             vals = get_flat_shap(explainer, X_case, len(X.columns))
             impact_df = pd.DataFrame({'Feature': X.columns, 'Contribution': vals}).sort_values(by='Contribution', ascending=False)
-            top_drivers = [{"feature": row['Feature']} for i, row in impact_df.head(3).iterrows() if row['Contribution'] > 0]
+            
+            # --- ACADEMIC FIX: Extract both the feature name AND the mathematical value for the agent ---
+            top_drivers = [{"feature": row['Feature'], "val": row['Contribution']} for i, row in impact_df.head(3).iterrows() if row['Contribution'] > 0]
             
             metadata_dict = {
                 'order_value': case_data['order_value'], 
@@ -329,7 +340,8 @@ if df is not None:
                 st.markdown(report_html, unsafe_allow_html=True)
                 
             try:
-                run_autonomous_agent(prob, X_case, "tab4")
+                # --- ACADEMIC FIX: Pass the SHAP factors into the autonomous agent ---
+                run_autonomous_agent(prob, X_case, "tab4", top_factors=top_drivers)
             except NameError:
                 pass 
         else:

@@ -1,81 +1,95 @@
-Agentic O2C
-Agentic Intelligence Integration for Explainable Order-to-Cash Process Risk Management
-Accepted for presentation at the LION20 Conference
+🌐 Agentic O2C Process Miner: Causal Decision Intelligence for Supply Chains
 
-Overview
-Order-to-Cash (O2C) processes are historically plagued by manual review bottlenecks, regulatory compliance delays, and fragmented logistics decision-making. Traditional Process Mining identifies these inefficiencies, while predictive machine learning forecasts them. However, a prescriptive gap remains wherein systems cannot autonomously execute corrective actions.
+📖 Abstract
 
-Agentic O2C is a multimodal Decision Intelligence architecture that bridges this gap. By combining a Random Forest predictive engine, Tree SHAP for causal feature attribution, and a Multi-Agent Large Language Model orchestration layer, the system functions as a deterministic, self-correcting state machine. It autonomously retrieves enterprise policies, calculates alternative shipping rates, and formulates compliant, cost-saving business resolutions.
+In modern Order-to-Cash (O2C) and supply chain logistics, predictive Machine Learning (ML) can successfully flag high-risk shipments, but it often fails to provide actionable, policy-compliant resolutions. Conversely, Large Language Models (LLMs) can generate prescriptive advice, but frequently suffer from generic hallucinations disconnected from the underlying mathematical data.
 
-Key Features
+This project introduces an Edge-native Decision Intelligence Architecture that bridges this gap. By utilizing a Random Forest classifier validated via a Stochastic Data-Generating Process (DGP), the system extracts mathematical causal drivers using SHAP (SHapley Additive exPlanations). These causal vectors are deterministically bound to an LLM's prompt, forcing the autonomous agent to generate prescriptive actions based strictly on mathematical realities. Furthermore, the system utilizes a localized FAISS Vector Database (Edge-RAG) to securely retrieve enterprise compliance policies, ensuring all AI-generated actions are legally and financially compliant without exposing proprietary data to the cloud.
 
-Predictive ML and Causal Explainability: Utilizes a Random Forest classifier (94.1 percent test accuracy) cached in RAM for high-speed inference, coupled with exact Tree SHAP values to isolate root causal drivers such as weight or international status.
+🔬 Key Methodological Contributions
 
-Parallel Mixture of Experts: Deploys specialized LangChain agents (Logistics Manager and Compliance Officer) running in parallel via a thread pool executor to optimize for both speed and regulatory risk.
+1. Mathematically Sound Target Generation (No Label Leakage)
 
-Retrieval-Augmented Generation (RAG): Eliminates LLM hallucination. The Compliance Agent autonomously queries a FAISS Vector Database to retrieve exact enterprise policies based on order attributes.
+To simulate a real-world enterprise environment where ground-truth labels are noisy and unpredictable, this architecture employs a Stochastic Data-Generating Process (DGP).
 
-Autonomous Tool Execution: The Executive Orchestrator (Finance Director) executes real-time Python backend functions to interact with simulated ERP APIs and dynamically pull cost-saving logistics alternatives.
+Rather than hardcoding absolute rules (which leads to label leakage and artificial 100% accuracy), the system calculates risk probabilities using an adjusted sigmoid function based on causal logistics factors (shipping mode, value, weight, etc.).
 
-Actor-Critic Self-Reflection Loop: A zero-hallucination deployment mechanism. An autonomous Risk Auditor rigorously evaluates drafted action plans against SLAs and budgets. Rejected plans force the system into a deterministic feedback loop for automatic revision before user visibility.
+Labels are assigned via a Binomial Distribution (np.random.binomial). We model a 90% probability of review for high-risk items (accounting for human error/bypasses) and a 5% probability for low-risk items (modeling random compliance audits).
 
-System Architecture
-The architecture strictly decouples deterministic machine learning from stochastic agentic reasoning across four main layers:
+The model is strictly evaluated on a 20% holdout test set, achieving a highly realistic ~85-89% generalization accuracy.
 
-Frontend Interface: A user-facing dashboard for process visualization and prescriptive simulation.
+2. SHAP-Constrained Autonomous Agents
 
-Cached ML Engine: Holds the Random Forest model and SHAP explainer in RAM for high-speed inference, preventing redundant disk reads.
+LLMs are highly prone to generating plausible but incorrect templates. To counter this, our Agentic workflow is explicitly constrained by Explainable AI (XAI).
 
-Tool Execution Layer: Contains the FAISS Vector Database for policy retrieval and the simulated ERP pricing application programming interface.
+When the ML engine flags an anomaly, shap.TreeExplainer flattens the multidimensional feature impact into a causal array.
 
-Agentic Orchestration: The cloud-based inference engine powering the Llama-3.1 agents, managed through LangChain.
+The LLM prompt is dynamically injected with these exact causal drivers (e.g., Weight (+11.7%)). The Agent is strictly instructed to resolve only these mathematical anomalies, proving a direct pipeline from Explainability to Prescriptive Action.
 
-The Agentic Workflow
+3. Edge-RAG (Retrieval-Augmented Generation)
 
-Trigger: The user inputs an order. The predictive model flags manual review risk, and the SHAP explainer isolates the causal drivers.
+To address enterprise data privacy concerns—where uploading proprietary compliance Standard Operating Procedures (SOPs) to cloud APIs is forbidden—this system utilizes Edge-RAG.
 
-Parallel Evaluation: The causal drivers are injected into the Logistics and Compliance agents. The Compliance agent uses RAG to fetch grounded policy context.
+Enterprise logistics policies (WEEE, C-TPAT, IATA) are embedded locally using HuggingFace (all-MiniLM-L6-v2).
 
-Executive Synthesis: The Finance Director receives conflicting advice from the parallel agents, triggers the ERP tool for live rates, and drafts a prescriptive business plan.
+The semantic search is executed entirely in local RAM using a FAISS (Facebook AI Similarity Search) CPU index.
 
-Audit and Self-Correction: The Risk Auditor evaluates the draft. If rejected due to logic or compliance flaws, it forces a rewrite. If approved, the final plan is rendered to the dashboard.
+This ensures that the "Actor-Critic" LLM ensemble grounds its financial and logistical decisions in verifiable, localized enterprise data.
 
-Tech Stack
+⚙️ Technical Architecture
 
-Frontend: Streamlit
+Predictive Layer: scikit-learn Random Forest (Class-balanced, 100 Estimators)
 
-Machine Learning: Scikit-Learn, SHAP
+Explainability Layer: shap TreeExplainer for feature contribution mapping
 
-Agentic Framework: LangChain, Groq API (Llama-3.1)
+Vector Store (Edge-RAG): faiss-cpu and sentence-transformers
 
-Knowledge Retrieval: FAISS, HuggingFace Embeddings
+Agentic Layer: langchain, langchain-groq, utilizing the Llama-3.1-8b-instant model for high-speed MoE (Mixture of Experts) inference.
 
-Data Processing: Pandas, NumPy, Joblib
+Interactive UI: streamlit with custom CSS for metric visualization.
 
-Installation and Setup
-To run this project locally, begin by downloading or cloning the repository to your local machine. Next, create and activate a Python virtual environment to keep dependencies isolated.
+🚀 Installation & Reproducibility
 
-Install all required dependencies listed in the requirements text file using your package manager. You will also need to configure your environment variables by creating a configuration file in the root directory and adding your Groq API key.
+To replicate this environment locally for peer review or testing:
 
-Once the environment is configured and dependencies are installed, launch the main application file using Streamlit to view the dashboard in your web browser.
+1. Clone the Repository
 
-Project Structure
-The repository is organized into specific functional directories:
+git clone https://github.com/VarunJagad1811/O2CIntelligenceSystem.git
+cd O2CIntelligenceSystem
 
-The root directory contains the main application entry point and dependency requirements.
 
-The modules folder holds the core logic, including the agentic AI definitions, machine learning loading scripts, and custom user interface rendering functions.
+2. Create a Virtual Environment (Recommended)
 
-The models folder stores the pre-trained Random Forest model and data encoders.
+python -m venv venv
+# On Windows:
+venv\Scripts\activate
+# On Mac/Linux:
+source venv/bin/activate
 
-The data folder houses the processed datasets and the FAISS vector database index files used for RAG policy retrieval.
 
-Performance Metrics
+3. Install Dependencies
 
-Predictive Accuracy: 94.1 percent Test Accuracy and 0.95 High-Risk Recall.
+pip install -r requirements.txt
 
-Agentic Latency: Approximately 3.7 seconds with a full rewrite loop, and 2.8 seconds with no rewrite required.
 
-Tool Invocation: 100 percent accuracy for Compliance RAG retrieval and 96 percent accuracy for Finance ERP checks.
+4. Configure Secure Secrets (API Keys)
 
-Self-Correction: 18 percent auditor rejection rate, ensuring strict SLA enforcement and zero-hallucination deployment.
+This project requires a Groq API key to power the Llama 3.1 LLM inference. Create a .streamlit folder and a secrets.toml file to securely store your key (this file is ignored by git for security).
+
+mkdir .streamlit
+# Inside .streamlit, create a file named secrets.toml and add:
+# GROQ_API_KEY = "your_actual_groq_api_key_here"
+
+
+5. Run the Application
+
+streamlit run app.py
+
+
+📊 Dataset Notice
+
+The dataset used (O2C_Dataset_10000_Cases_Enriched_50Features.csv) is a synthetically enriched 10,000-row logistical dataset designed specifically to mimic highly variant cross-border enterprise resource planning (ERP) systems.
+
+🛡️ License
+
+This project is open-source and available under the MIT License.

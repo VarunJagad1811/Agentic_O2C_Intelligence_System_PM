@@ -6,6 +6,7 @@ from groq import Groq
 from langchain_groq import ChatGroq
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 # CRITICAL ACADEMIC UPDATE: Import actual RAG dependencies
 from langchain_community.vectorstores import FAISS
@@ -55,6 +56,11 @@ def search_policy_database(search_query: str) -> str:
 def get_groq_client():
     return Groq(api_key=st.secrets["GROQ_API_KEY"])
 
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+def _safe_invoke(runnable, messages):
+    """Wraps LLM invocations with exponential backoff to handle transient API limits/blips."""
+    return runnable.invoke(messages)
+
 def _run_agent_with_tools(llm, system_prompt, user_content, tools_list, final_formatting_prompt=""):
     messages = [
         SystemMessage(content=system_prompt),
@@ -62,11 +68,11 @@ def _run_agent_with_tools(llm, system_prompt, user_content, tools_list, final_fo
     ]
     
     if not tools_list:
-        final_answer = llm.invoke(messages).content.replace("```html", "").replace("```", "").strip()
+        final_answer = _safe_invoke(llm, messages).content.replace("```html", "").replace("```", "").strip()
         return final_answer, ""
 
     llm_with_tools = llm.bind_tools(tools_list)
-    response = llm_with_tools.invoke(messages)
+    response = _safe_invoke(llm_with_tools, messages)
     
     ui_logs = ""
     
@@ -99,11 +105,11 @@ def _run_agent_with_tools(llm, system_prompt, user_content, tools_list, final_fo
             messages.append(ToolMessage(content=t_result, tool_call_id=tool_call['id']))
         
         messages.append(HumanMessage(content=f"Using the data retrieved, provide your final response. DO NOT use markdown lists or bullet points. {final_formatting_prompt}"))
-        final_answer = llm.invoke(messages).content.replace("```html", "").replace("```", "").strip()
+        final_answer = _safe_invoke(llm, messages).content.replace("```html", "").replace("```", "").strip()
         return final_answer, ui_logs
     else:
         messages.append(HumanMessage(content=f"DO NOT use markdown lists or bullet points. {final_formatting_prompt}"))
-        final_answer = llm.invoke(messages).content.replace("```html", "").replace("```", "").strip()
+        final_answer = _safe_invoke(llm, messages).content.replace("```html", "").replace("```", "").strip()
         return final_answer, ""
 
 def _build_deterministic_context(metadata_dict):
@@ -172,7 +178,7 @@ def generate_risk_narrative(risk_score, metadata_dict, top_factors):
         audit_sys = "You are a strict Risk Auditor. Review the Finance Director's plan. If safe and logical, reply 'APPROVED'. If it ignores compliance, reply 'REJECTED: [Reason]'."
         audit_prompt = f"Draft Plan:\n{draft_verdict}\n\nDoes this effectively balance cost, speed, and compliance? Keep it under 20 words."
         
-        audit_response = llm.invoke([SystemMessage(content=audit_sys), HumanMessage(content=audit_prompt)]).content.strip()
+        audit_response = _safe_invoke(llm, [SystemMessage(content=audit_sys), HumanMessage(content=audit_prompt)]).content.strip()
 
         reflection_logs = ""
         final_verdict = draft_verdict
@@ -186,7 +192,7 @@ def generate_risk_narrative(risk_score, metadata_dict, top_factors):
 """
             rewrite_sys = "You are the Finance Director. Your previous plan was rejected. You must revise it."
             rewrite_prompt = f"Original Plan:\n{draft_verdict}\n\nRejection Reason:\n{audit_response}\n\nProvide a NEW plan that fixes this flaw. {fin_format}"
-            final_verdict = llm.invoke([SystemMessage(content=rewrite_sys), HumanMessage(content=rewrite_prompt)]).content.replace("```html", "").replace("```", "").strip()
+            final_verdict = _safe_invoke(llm, [SystemMessage(content=rewrite_sys), HumanMessage(content=rewrite_prompt)]).content.replace("```html", "").replace("```", "").strip()
         else:
             reflection_logs = f"""
 <div style='margin-bottom: 15px; font-size: 0.85rem; border-left: 2px solid #10b981; padding-left: 10px; background: rgba(16, 185, 129, 0.05); padding-top: 8px; padding-bottom: 8px;'>
@@ -248,7 +254,7 @@ def generate_detailed_business_report(case_id, risk_score, metadata_dict, top_fa
         audit_sys = "You are a strict Risk Auditor. Review the plan. Reply 'APPROVED' if good. If it creates delays, reply 'REJECTED: [Reason]'."
         audit_prompt = f"Draft Plan:\n{draft_verdict}\n\nDoes this balance cost, speed, and compliance?"
         
-        audit_response = llm.invoke([SystemMessage(content=audit_sys), HumanMessage(content=audit_prompt)]).content.strip()
+        audit_response = _safe_invoke(llm, [SystemMessage(content=audit_sys), HumanMessage(content=audit_prompt)]).content.strip()
 
         reflection_logs = ""
         final_verdict = draft_verdict
@@ -262,7 +268,7 @@ def generate_detailed_business_report(case_id, risk_score, metadata_dict, top_fa
 """
             rewrite_sys = "You are the Finance Director. Your previous plan was rejected. You must revise it."
             rewrite_prompt = f"Original Plan:\n{draft_verdict}\n\nRejection Reason:\n{audit_response}\n\nProvide a NEW plan. {fin_format}"
-            final_verdict = llm.invoke([SystemMessage(content=rewrite_sys), HumanMessage(content=rewrite_prompt)]).content.replace("```html", "").replace("```", "").strip()
+            final_verdict = _safe_invoke(llm, [SystemMessage(content=rewrite_sys), HumanMessage(content=rewrite_prompt)]).content.replace("```html", "").replace("```", "").strip()
         else:
             reflection_logs = f"""
 <div style='margin-bottom: 15px; font-size: 0.95rem; border-left: 2px solid #10b981; padding-left: 10px; background: rgba(16, 185, 129, 0.05); padding-top: 8px; padding-bottom: 8px;'>
@@ -323,7 +329,7 @@ def run_autonomous_agent(risk_score, case_inputs, unique_tab_id, top_factors=Non
             user_prompt = f"Order Value: {val}, Mode: {mode}, Risk Score: {risk_score:.2f}. What are the 3 prescriptive actions?"
             
             with st.spinner("Generating prescriptive actions from ML drivers..."):
-                response = llm.invoke([
+                response = _safe_invoke(llm, [
                     SystemMessage(content=sys_prompt), 
                     HumanMessage(content=user_prompt)
                 ]).content.strip()
@@ -338,4 +344,12 @@ def run_autonomous_agent(risk_score, case_inputs, unique_tab_id, top_factors=Non
                         st.success(f"**Action:** {act}", icon=icon)
 
         except Exception as e:
-            st.warning(f"Failed to generate dynamic actions. Ensure API keys are set. Error: {str(e)}")
+            st.warning(f"⚠️ API connection issue detected. Loading static fallback protocols...")
+            if risk_score > 0.50:
+                st.error("**Action:** Immediate Manual Review Required. Route to Compliance Team.", icon="🚨")
+                st.error("**Action:** Halt shipment dispatch pending ERP clearance.", icon="🚨")
+                st.error("**Action:** Flag vendor/mode for secondary audit.", icon="🚨")
+            else:
+                st.success("**Action:** Standard processing approved. Proceed to dispatch.", icon="💡")
+                st.success("**Action:** Log telemetry for monthly optimization review.", icon="💡")
+                st.success("**Action:** Monitor ETA via standard tracking.", icon="💡")
